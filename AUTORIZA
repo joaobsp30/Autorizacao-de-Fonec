@@ -1,0 +1,377 @@
+SELECT DISTINCT qt
+     , atendimento
+     , cd_aviso_cirurgia
+     , cd_paciente
+     , nm_paciente
+     , cd_leito
+     , ds_leito
+     , cd_convenio
+     , nm_conveio
+     , data_cirurgia
+     , cd_especialidade
+     , ds_especialidade
+     , cd_cirurgia
+     , ds_cirurgia
+     , cd_estoque
+     , cd_produto
+     , ds_produto
+     , cd_lote
+     , cd_fornecedor
+     , nm_fornecedor
+     , vl_custo_real
+     , anvisa
+     , unit_ordcom
+     , valor
+     , cd_procedimento
+     , ds_procedimento
+     , codigo
+     , cd_tuss_proprio
+     , sus_tus_prorio
+     , cd_pro_fat
+     , valor_total
+     , ds_ordem_de_compra
+     , carteirinha
+  FROM (SELECT Sum(Decode(tipo, 'P', qt_movimentacao, 'C', -qt_movimentacao)) qt
+             , atendimento
+             , cd_aviso_cirurgia
+             , cd_paciente
+             , nm_paciente
+             , cd_leito
+             , ds_leito
+             , cd_convenio
+             , nm_conveio
+             , data_cirurgia
+             , cd_especialidade
+             , ds_especialidade
+             , cd_cirurgia
+             , ds_cirurgia
+             , cd_estoque
+             , cd_produto
+             , ds_produto
+             , cd_lote
+             , cd_fornecedor
+             , nm_fornecedor
+             , vl_custo_real
+             , Trim(anvisa)   AS anvisa
+             , unit_ordcom
+             , valor
+             , cd_procedimento
+             , ds_procedimento
+             , codigo
+             , Trim(cd_tuss_proprio) AS cd_tuss_proprio
+             , sus_tus_prorio
+             , Trim(cd_pro_fat) AS  cd_pro_fat
+             , Sum(Decode(tipo, 'P', valor_total, 'C', -valor_total)) valor_total
+             , Max(ds_ordem_de_compra) ds_ordem_de_compra
+             , carteirinha
+          FROM (SELECT tipo
+                     , atendimento
+                     , cd_aviso_cirurgia
+                     , cd_paciente
+                     , nm_paciente
+                     , data_atendimento
+                     , cd_leito
+                     , ds_leito
+                     , cd_convenio
+                     , nm_conveio
+                     , data_cirurgia
+                     , cd_especialidade
+                     , ds_especialidade
+                     , cd_cirurgia
+                     , ds_cirurgia
+                     , cd_estoque
+                     , cd_produto
+                     , ds_produto
+                     , qt_movimentacao
+                     , cd_lote
+                     , dt_validade
+                     , cd_fornecedor
+                     , nm_fornecedor
+                     , cd_mvto_estoque
+                     , vl_custo_real
+                     , anvisa
+                     , vl_ord_com
+                     , unit_ordcom
+                     , valor
+                     , cd_procedimento
+                     , ds_procedimento
+                     , codigo
+                     , cd_tuss_proprio
+                     , Decode (cd_tuss_proprio,null,codigo,cd_tuss_proprio ) sus_tus_prorio
+                     , cd_pro_fat
+                     ,(qt_movimentacao*unit_ordcom) valor_total
+                     , ds_ordem_de_compra
+                     , carteirinha
+                  FROM ( SELECT   mvto_estoque.tp_mvto_estoque  tipo
+                              , atendime.cd_atendimento  atendimento
+                              , aviso_cirurgia.cd_aviso_cirurgia cd_aviso_cirurgia
+                              , paciente.cd_paciente cd_paciente
+                              , paciente.nm_paciente nm_paciente
+                              , To_Char(atendime.dt_atendimento,'dd/mm/yyyy') data_atendimento
+                              , atendime.cd_leito cd_leito
+                              , leito.ds_leito ds_leito
+                              , atendime.cd_convenio cd_convenio
+                              , convenio.nm_convenio nm_conveio
+                              , To_Char(aviso_cirurgia.dt_realizacao,'dd/mm/yyyy') data_cirurgia
+                              , cirurgia_aviso.cd_especialid cd_especialidade
+                              , especialid.ds_especialid ds_especialidade
+                              , cirurgia_aviso.cd_cirurgia cd_cirurgia
+                              , cirurgia.ds_cirurgia ds_cirurgia
+                              , mvto_estoque.cd_estoque cd_estoque
+                              , itmvto_estoque.cd_produto cd_produto
+                              , produto.ds_produto ds_produto
+                              , itmvto_estoque.qt_movimentacao
+                              , itmvto_estoque.cd_lote cd_lote
+                              , itmvto_estoque.dt_validade dt_validade
+                              , itmvto_estoque.cd_fornecedor  cd_fornecedor
+                              , fornecedor.nm_fornecedor nm_fornecedor
+                              , mvto_estoque.cd_mvto_estoque cd_mvto_estoque
+                              , mvto_estoque.dt_mvto_estoque dt_mvto_estoque
+                              , produto.vl_ultima_custo_real vl_custo_real
+                              , lab_pro.cd_registro anvisa
+                              , ord_com.cd_ord_com cd_ord_com
+                              , ord_com.vl_total vl_ord_com
+                              , itord_pro.vl_unitario unit_ordcom
+                              , (CASE WHEN atendime.cd_convenio = {CD_CONVENIO} THEN produto.vl_ultima_custo_real ELSE itord_pro.vl_unitario END) valor
+                              , DECODE(convenio.tp_convenio,'A',cirurgia.cd_procedimento_sia,'H',cirurgia.cd_procedimento_sih,cirurgia.cd_pro_fat) cd_procedimento
+                              , DECODE(convenio.tp_convenio,'A',(SELECT ds_procedimento
+                                                                   FROM dbamv.procedimento_sus
+                                                                  WHERE cd_procedimento = cirurgia.cd_procedimento_sia),'H',(SELECT ds_procedimento
+                                                                                                                               FROM dbamv.procedimento_sus
+                                                                                                                              WHERE cd_procedimento = cirurgia.cd_procedimento_sih),(SELECT ds_pro_fat
+                                                                                                                                                                                       FROM dbamv.pro_fat
+                                                                                                                                                                                      WHERE cd_pro_fat = cirurgia.cd_pro_fat)) ds_procedimento
+                              , Nvl((SELECT cd_tuss
+                                       FROM dbamv.tuss
+                                      WHERE dt_fim_vigencia IS NULL
+                                        AND cd_tip_tuss = {VARIAVEL TABELA TNUMM}
+                                        AND cd_pro_fat IN(DECODE(convenio.tp_convenio,'A',produto.cd_procedimento_sus,'H',produto.cd_procedimento_sus,produto.cd_pro_fat))),
+                                                         (DECODE(convenio.tp_convenio,'A',produto.cd_procedimento_sus,'H',produto.cd_procedimento_sus,produto.cd_pro_fat))) codigo
+                              , (SELECT cd_tuss
+                                   FROM dbamv.tuss
+                                  WHERE dt_fim_vigencia IS NULL
+                                    AND cd_tip_tuss = {VARIAVEL TABELA TNUMM}
+                                    AND cd_pro_fat IN(DECODE(convenio.tp_convenio,'A',produto.cd_procedimento_sus,'H',produto.cd_procedimento_sus,produto.cd_pro_fat))
+                                    AND cd_convenio = convenio.cd_convenio) cd_tuss_proprio
+                              , produto.cd_pro_fat
+                              , ord_com.ds_ordem_de_compra
+                              , atendime.nr_carteira carteirinha
+                           FROM dbamv.aviso_cirurgia
+                              , dbamv.cirurgia_aviso
+                              , dbamv.cirurgia
+                              , dbamv.prestador_aviso
+                              , dbamv.atendime
+                              , dbamv.paciente
+                              , dbamv.prestador
+                              , dbamv.especialid
+                              , dbamv.leito
+                              , dbamv.convenio
+                              , dbamv.produto
+                              , dbamv.fornecedor
+                              , dbamv.mvto_estoque
+                              , dbamv.itmvto_estoque
+                              , dbamv.Lab_Pro
+                              , dbamv.consumo_paciente
+                              , dbamv.ord_com
+                              , dbamv.itord_pro
+                          WHERE atendime.cd_atendimento = aviso_cirurgia.cd_atendimento
+                            AND cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+                            AND prestador_aviso.cd_prestador = prestador.cd_prestador
+                            AND aviso_cirurgia.cd_aviso_cirurgia   = cirurgia_aviso.cd_aviso_cirurgia
+                            AND prestador_aviso.cd_aviso_cirurgia  = aviso_cirurgia.cd_aviso_cirurgia
+                            AND prestador_aviso.cd_aviso_cirurgia  = cirurgia_aviso.cd_aviso_cirurgia
+                            AND cirurgia_aviso.cd_especialid = especialid.cd_especialid     (+)
+                            AND produto.cd_produto = lab_pro.cd_produto
+                            AND atendime.cd_paciente = paciente.cd_paciente
+                            AND cirurgia_aviso.sn_principal ='S'
+                            AND prestador_aviso.sn_principal = 'S'
+                            AND  prestador_aviso.cd_ati_med = {CD_CONVENIO}
+                            AND atendime.cd_leito = leito.cd_leito (+)
+                            AND atendime.cd_convenio = convenio.cd_convenio
+                            AND itmvto_estoque.cd_fornecedor = fornecedor.cd_fornecedor(+)
+                            AND mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+                            AND itmvto_estoque.cd_produto = produto.cd_produto
+                            AND atendime.cd_atendimento = mvto_estoque.cd_atendimento
+                            AND aviso_cirurgia.cd_aviso_cirurgia = consumo_paciente.cd_avISo_cirurgia
+                            AND consumo_paciente.cd_consumo_paciente = ord_com.cd_consumo_paciente (+)
+                            AND ord_com. cd_ord_com = itord_pro.cd_ord_com
+                            AND itord_pro.cd_produto  = itmvto_estoque.cd_produto
+                            AND aviso_cirurgia.cd_aviso_cirurgia = mvto_estoque.cd_aviso_cirurgia
+                            AND mvto_estoque.cd_estoque = {CD_ESTOQUE}
+
+          UNION ALL
+
+                         SELECT mvto_estoque.tp_mvto_estoque                                 tipo
+                              , atendime.cd_atendimento                                      atendimento
+                              , aviso_cirurgia.cd_aviso_cirurgia                             cd_aviso_cirurgia
+                              , paciente.cd_paciente                                         cd_paciente
+                              , paciente.nm_paciente                                         nm_paciente
+                              , to_char (atendime.dt_atendimento,'dd/mm/yyyy')               data_atendimento
+                              , atendime.cd_leito                                            cd_leito
+                              , leito.ds_leito                                               ds_leito
+                              , atendime.cd_convenio                                         cd_convenio
+                              , convenio.nm_convenio                                         nm_conveio
+                              , to_char (aviso_cirurgia.dt_realizacao,'dd/mm/yyyy')          data_cirurgia
+                              , cirurgia_aviso.cd_especialid                                 cd_especialidade
+                              , especialid.ds_especialid                                     ds_especialidade
+                              , cirurgia_aviso.cd_cirurgia                                   cd_cirurgia
+                              , cirurgia.ds_cirurgia                                         ds_cirurgia
+                              , mvto_estoque.cd_estoque                                      cd_estoque
+                              , itmvto_estoque.cd_produto                                    cd_produto
+                              , produto.ds_produto                                           ds_produto
+                              , itmvto_estoque.qt_movimentacao                               qt_movimentacao
+                              , itmvto_estoque.cd_lote                                       cd_lote
+                              , itmvto_estoque.dt_validade                                   dt_validade
+                              , itmvto_estoque.cd_fornecedor                                 cd_fornecedor
+                              , fornecedor.nm_fornecedor                                     nm_fornecedor
+                              , mvto_estoque.cd_mvto_estoque                                 cd_mvto_estoque
+                              , mvto_estoque.dt_mvto_estoque                                 dt_mvto_estoque
+                              , produto.vl_ultima_custo_real                                 vl_custo_real
+                              , lab_pro.cd_registro                                          anvisa
+                              , NULL cd_ord_com
+                              , NULL vl_ord_com
+                              , NULL unit_ordcom
+                              , produto.vl_ultima_custo_real                                 valor
+                              , DECODE(convenio.tp_convenio,'A',cirurgia.cd_procedimento_sia,'H',cirurgia.cd_procedimento_sih,cirurgia.cd_pro_fat) cd_procedimento
+                              , DECODE(convenio.tp_convenio,'A',(SELECT ds_procedimento
+                                                                   FROM dbamv.procedimento_sus
+                                                                  WHERE cd_procedimento = cirurgia.cd_procedimento_sia),'H',(SELECT ds_procedimento
+                                                                                                                               FROM dbamv.procedimento_sus
+                                                                                                                              WHERE cd_procedimento = cirurgia.cd_procedimento_sih),(SELECT ds_pro_fat
+                                                                                                                                                                                       FROM dbamv.pro_fat
+                                                                                                                                                                                      WHERE cd_pro_fat = cirurgia.cd_pro_fat)) ds_procedimento
+                              , Nvl((SELECT cd_tuss
+                                       FROM dbamv.tuss
+                                      WHERE dt_fim_vigencia IS NULL
+                                        AND cd_tip_tuss = {VARIAVEL TABELA TNUMM}
+                                        AND cd_pro_fat IN(DECODE(convenio.tp_convenio,'A',produto.cd_procedimento_sus,'H',produto.cd_procedimento_sus,produto.cd_pro_fat)))
+                                                       , (DECODE(convenio.tp_convenio,'A',produto.cd_procedimento_sus,'H',produto.cd_procedimento_sus,produto.cd_pro_fat))) codigo
+                              , (SELECT cd_tuss
+                                   FROM dbamv.tuss
+                                  WHERE dt_fim_vigencia IS NULL
+                                    AND cd_tip_tuss = {VARIAVEL TABELA TNUMM}
+                                    AND cd_pro_fat IN(DECODE(convenio.tp_convenio,'A',produto.cd_procedimento_sus,'H',produto.cd_procedimento_sus,produto.cd_pro_fat))
+                                    AND cd_convenio = convenio.cd_convenio) cd_tuss_proprio
+                              , produto.cd_pro_fat
+                              , ord_com.ds_ordem_de_compra
+                              , atendime.nr_carteira carteirinha
+                           FROM dbamv.aviso_cirurgia
+                              , dbamv.cirurgia_aviso
+                              , dbamv.cirurgia
+                              , dbamv.prestador_aviso
+                              , dbamv.atendime
+                              , dbamv.paciente
+                              , dbamv.prestador
+                              , dbamv.especialid
+                              , dbamv.leito
+                              , dbamv.convenio
+                              , dbamv.produto
+                              , dbamv.fornecedor
+                              , dbamv.mvto_estoque
+                              , dbamv.itmvto_estoque
+                              , dbamv.Lab_Pro
+                              , dbamv.consumo_paciente
+                              , dbamv.ord_com
+                              , dbamv.itord_pro
+                          WHERE atendime.cd_atendimento = aviso_cirurgia.cd_atendimento
+                            AND cirurgia_aviso.cd_cirurgia = cirurgia.cd_cirurgia
+                            AND prestador_aviso.cd_prestador = prestador.cd_prestador
+                            AND aviso_cirurgia.cd_aviso_cirurgia   = cirurgia_aviso.cd_aviso_cirurgia
+                            AND prestador_aviso.cd_aviso_cirurgia  = aviso_cirurgia.cd_aviso_cirurgia
+                            AND prestador_aviso.cd_aviso_cirurgia  = cirurgia_aviso.cd_aviso_cirurgia
+                            AND cirurgia_aviso.cd_especialid = especialid.cd_especialid     (+)
+                            AND produto.cd_produto = lab_pro.cd_produto
+                            AND atendime.cd_paciente = paciente.cd_paciente
+                            AND cirurgia_aviso.sn_principal ='S'
+                            AND prestador_aviso.sn_principal = 'S'
+                            AND prestador_aviso.cd_ati_med = {CD_CONVENIO}
+                            AND atendime.cd_leito = leito.cd_leito (+)
+                            AND atendime.cd_convenio = convenio.cd_convenio
+                            AND itmvto_estoque.cd_fornecedor = fornecedor.cd_fornecedor(+)
+                            AND mvto_estoque.cd_mvto_estoque = itmvto_estoque.cd_mvto_estoque
+                            AND itmvto_estoque.cd_produto = produto.cd_produto
+                            AND atendime.cd_atendimento = mvto_estoque.cd_atendimento
+                            AND aviso_cirurgia.cd_aviso_cirurgia = consumo_paciente.cd_aviso_cirurgia (+)
+                            AND consumo_paciente.cd_consumo_paciente = ord_com.cd_consumo_paciente(+)
+                            AND ord_com.cd_ord_com = itord_pro.cd_ord_com
+                            AND aviso_cirurgia.cd_aviso_cirurgia = mvto_estoque.cd_aviso_cirurgia
+                            AND mvto_estoque.cd_estoque = {CD_ESTOQUE}) bloco1
+                 WHERE anvisa IS NOT NULL
+                   AND vl_ord_com IS NOT NULL
+                 GROUP BY tipo
+                     , atendimento
+                     , cd_aviso_cirurgia
+                     , cd_paciente
+                     , nm_paciente
+                     , data_atendimento
+                     , cd_leito
+                     , ds_leito
+                     , cd_convenio
+                     , nm_conveio
+                     , data_cirurgia
+                     , cd_especialidade
+                     , ds_especialidade
+                     , cd_cirurgia
+                     , ds_cirurgia
+                     , cd_estoque
+                     , cd_produto
+                     , ds_produto
+                     , qt_movimentacao
+                     , cd_lote
+                     , dt_validade
+                     , cd_fornecedor
+                     , nm_fornecedor
+                     , cd_mvto_estoque
+                     , vl_custo_real
+                     , anvisa
+                     , vl_ord_com
+                     , unit_ordcom
+                     , valor
+                     , cd_procedimento
+                     , ds_procedimento
+                     , codigo
+                     , cd_tuss_proprio
+                     , cd_pro_fat
+                     , ds_ordem_de_compra
+                     , carteirinha
+                    ORDER BY 1)
+              GROUP BY
+              atendimento
+             , cd_aviso_cirurgia
+             , cd_paciente
+             , nm_paciente
+             , cd_leito
+             , ds_leito
+             , cd_convenio
+             , nm_conveio
+             , data_cirurgia
+             , cd_especialidade
+             , ds_especialidade
+             , cd_cirurgia
+             , ds_cirurgia
+             , cd_estoque
+             , cd_produto
+             , ds_produto
+             , cd_lote
+             , cd_fornecedor
+             , nm_fornecedor
+             , vl_custo_real
+             , anvisa
+             , unit_ordcom
+             , valor
+             , cd_procedimento
+             , ds_procedimento
+             , codigo
+             , cd_tuss_proprio
+             , sus_tus_prorio
+             , cd_pro_fat
+             , valor_total
+             , ds_ordem_de_compra
+             , carteirinha
+)
+ WHERE qt > 0
+   AND UNIT_ORDCOM >0
+   AND valor_total > 0
+   AND ATENDIMENTO = {CD_ATENDIMENTO}
+   AND cd_aviso_cirurgia = {CD_AVISO}
+
